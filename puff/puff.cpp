@@ -37,6 +37,7 @@ struct pufFile {
 	huffTableEntry hufTable[513];
 	ifstream compressedFile;
 	double compressedFileLength;
+	map<string, int> byteCodes;
 };
 
 // TODO close file
@@ -44,11 +45,6 @@ struct pufFile {
 void loadFileContents(pufFile &pufFile)
 {
 	pufFile.compressedFile = ifstream(pufFile.pufName, ios::in | ios::binary);
-
-	pufFile.compressedFile.seekg(0, pufFile.compressedFile.end);
-	pufFile.compressedFileLength = pufFile.compressedFile.tellg();
-	pufFile.compressedFile.seekg(0, pufFile.compressedFile.beg);
-
 }
 
 bool determineBitOrientation(unsigned char byte, int bitPosition)
@@ -126,7 +122,7 @@ void getHuffmanTable(pufFile &pufFile)
 					bitTracker++;
 				}
 			}
-			if (bitValue > 256)
+			if (bitValue == 65535)
 				bitValue = -1;
 			if (j == 0)
 				pufFile.hufTable[i].glyph = bitValue;
@@ -135,9 +131,100 @@ void getHuffmanTable(pufFile &pufFile)
 			else
 				pufFile.hufTable[i].rightPointer = bitValue;
 		}
-		cout << (char)pufFile.hufTable[i].glyph << ' ' << pufFile.hufTable[i].leftPointer << ' ' << pufFile.hufTable[i].rightPointer << endl;
+		//Debug statement
+		/*cout << pufFile.hufTable[i].glyph << ' ' << pufFile.hufTable[i].leftPointer << ' ' << pufFile.hufTable[i].rightPointer << endl;*/
 	}
 
+}
+
+void generateByteCodes(huffTableEntry hufTable[], map<string, int> &byteCodes, int position, string byteCode)
+{
+	if (hufTable[position].leftPointer != -1 || hufTable[position].rightPointer != -1) {
+		if (hufTable[position].leftPointer != -1) {
+			generateByteCodes(hufTable, byteCodes, hufTable[position].leftPointer, (byteCode + "0"));
+		}
+		if (hufTable[position].rightPointer != -1) {
+			generateByteCodes(hufTable, byteCodes, hufTable[position].rightPointer, (byteCode + "1"));
+		}
+	}
+	else {
+		byteCodes[byteCode] = hufTable[position].glyph;
+	}
+}
+
+void generateByteCodeTable(pufFile &pufFile)
+{
+	string byteCode;
+
+	generateByteCodes(pufFile.hufTable, pufFile.byteCodes, 0, byteCode);
+
+	//Debug Statement
+	/*for (auto elem : pufFile.byteCodes) {
+		std::cout << elem.first << " " << std::setfill('0') << std::setw(2) << std::uppercase << elem.second
+			<< "\n";
+	}*/
+}
+
+string getEncodedMessage(pufFile &pufFile)
+{
+	//Get the current position in the file, get the file length, then go back to the place that was left from
+	int currentPosition = pufFile.compressedFile.tellg();
+	pufFile.compressedFile.seekg(0, pufFile.compressedFile.end);
+	pufFile.compressedFileLength = pufFile.compressedFile.tellg();
+	pufFile.compressedFile.seekg(currentPosition);
+	
+	string s = "";
+	int bitTracker = 0;
+
+	for (int i = currentPosition; i < pufFile.compressedFileLength; i++)
+	{
+		unsigned char c[1];
+		pufFile.compressedFile.read((char *)c, 1);
+		pufFile.compressedFile.seekg(0, 1);
+
+		for (int j = 0; j < 8; j++)
+		{
+			s += determineBitOrientation(c[0], j) ? "1" : "0";
+			bitTracker++;
+		}
+
+		bitTracker = 0;
+	}
+	return s;
+}
+
+string getDecodedMessage(pufFile &pufFile, string message)
+{
+	int messageLength = message.size();
+	string comparisonString = "";
+	string decodedString = "";
+	for (int i = 0; i < messageLength; i++)
+	{
+		comparisonString += message[i];
+		auto search = pufFile.byteCodes.find(comparisonString);
+		if (search != pufFile.byteCodes.end())
+		{
+			if (search->second == 256)
+			{
+				int i = messageLength;
+			}
+			else
+			{
+				decodedString += (char)search->second;
+				comparisonString = "";
+			}
+		}
+	}
+	return decodedString;
+}
+
+void generateOutputFile(pufFile &pufFile, string decodedMessage)
+{
+	ofstream decodedFile(pufFile.realName, ios::out);
+
+	decodedFile << decodedMessage;
+
+	decodedFile.close();
 }
 
 void decompressFile(string fileToDecompress)
@@ -148,6 +235,10 @@ void decompressFile(string fileToDecompress)
 	loadFileContents(pufFile);
 	getFileNameLengthAndName(pufFile);
 	getHuffmanTable(pufFile);
+	generateByteCodeTable(pufFile);
+	string message = getEncodedMessage(pufFile);
+	string decodedMessage = getDecodedMessage(pufFile, message);
+	generateOutputFile(pufFile, decodedMessage);
 }
 
 void main()
