@@ -206,7 +206,7 @@ string getDecodedMessage(pufFile &pufFile, string message)
 		{
 			if (search->second == 256)
 			{
-				int i = messageLength;
+				i = messageLength;
 			}
 			else
 			{
