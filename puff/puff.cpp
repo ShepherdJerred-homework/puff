@@ -148,7 +148,9 @@ void generateByteCodeTable(pufFile &pufFile) {
     generateByteCodes(pufFile.hufTable, pufFile.byteCodes, 0, byteCode);
 }
 
-//Gets the contents of file as a long string of bits to be read later and decoded
+//Gets the contents of file as a long string of bits to be read later and decoded.
+//Reads each individual byte and determines its bit orientation, and adds each bit
+//to a string that will contain the entire message as bits.
 string getEncodedMessage(pufFile &pufFile) {
     //Get the current position in the file, get the file length, then go back to the place that was left from
     int currentPosition = pufFile.compressedFile.tellg();
@@ -170,6 +172,11 @@ string getEncodedMessage(pufFile &pufFile) {
     return s;
 }
 
+//Decodes the message by reading in each bit individually to a comparison string.
+//Once a bit is read, the comparison string is compared with the map of byteCodes and glyphs.
+//If the comparison string matches a byte code, we then append the corresponding byte code's
+//glyph to the decoded message string and reset the comparison string. When the function finds
+//the end of file glyph, the loop is exited and the decoded string is returned.
 string getDecodedMessage(pufFile &pufFile, string message) {
     int messageLength = message.size();
     string comparisonString;
@@ -189,6 +196,8 @@ string getDecodedMessage(pufFile &pufFile, string message) {
     return decodedString;
 }
 
+//Opens the file with it's original file name and outputs the contents of the 
+//decoded message.
 void generateOutputFile(pufFile &pufFile, string decodedMessage) {
     ofstream decodedFile(pufFile.realName, ios::out|ios::binary);
 
@@ -196,6 +205,7 @@ void generateOutputFile(pufFile &pufFile, string decodedMessage) {
     decodedFile.close();
 }
 
+//Contains all the trigger calls for the functions described above.
 void decompressFile(string fileToDecompress) {
     pufFile pufFile;
     pufFile.pufName = fileToDecompress;
