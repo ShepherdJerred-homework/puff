@@ -36,13 +36,10 @@ struct huffTableEntry {
 //to its decoding. hufTable is generated based on the contents of the file and is what allows
 //the file to be decoded. byteCodes is generated once hufTable is completed.
 struct pufFile {
-    int realNameLength = 0;
     string realName = "";
     string pufName;
-    int numberOfGlyphs = 0;
     huffTableEntry hufTable[513];
     ifstream compressedFile;
-    double compressedFileLength;
     map<string, int> byteCodes;
 };
 
@@ -59,6 +56,7 @@ bool determineBitOrientation(unsigned char byte, int bitPosition) {
 void getFileNameLengthAndName(pufFile &pufFile) {
     unsigned char c;
     int bitTracker = 0;
+	int realNameLength = 0;
 
     //loop four times to get 4 bytes of name length
     for (int i = 0; i < 4; i++) {
@@ -66,13 +64,13 @@ void getFileNameLengthAndName(pufFile &pufFile) {
         pufFile.compressedFile.seekg(0, 1);
 
         for (int j = 0; j < 8; j++) {
-            pufFile.realNameLength += determineBitOrientation(c, j) ? (short) pow(2.0, bitTracker) : 0;
+            realNameLength += determineBitOrientation(c, j) ? (short) pow(2.0, bitTracker) : 0;
             bitTracker++;
         }
     }
 
     //loop until we've gotten the whole length of the file
-    for (int i = 0; i < pufFile.realNameLength; i++) {
+    for (int i = 0; i < realNameLength; i++) {
         pufFile.compressedFile.read((char *)&c, 1);
         pufFile.compressedFile.seekg(0, 1);
 
@@ -86,6 +84,7 @@ void getHuffmanTable(pufFile &pufFile) {
     unsigned char c;
     int bitTracker = 0;
     int bitValue = 0;
+	int numberOfGlyphs = 0;
 
     //loops through 4 bytes to get huffman length
     for (int i = 0; i < 4; i++) {
@@ -93,14 +92,14 @@ void getHuffmanTable(pufFile &pufFile) {
         pufFile.compressedFile.seekg(0, 1);
 
         for (int j = 0; j < 8; j++) {
-            pufFile.numberOfGlyphs += determineBitOrientation(c, j) ? (short) pow(2.0, bitTracker) : 0;
+            numberOfGlyphs += determineBitOrientation(c, j) ? (short) pow(2.0, bitTracker) : 0;
             bitTracker++;
         }
     }
 
     // first loop is for the slot in huffman table array, second loop is for glyph(first) vs left pointer(second) vs right pointer(third),
     //third loop is for the values gotten from file, fourth is for bit orientation.
-    for (int i = 0; i < pufFile.numberOfGlyphs; i++) {
+    for (int i = 0; i < numberOfGlyphs; i++) {
         for (int j = 0; j < 3; j++) {
             bitTracker = 0;
             bitValue = 0;
@@ -155,12 +154,12 @@ string getEncodedMessage(pufFile &pufFile) {
     //Get the current position in the file, get the file length, then go back to the place that was left from
     int currentPosition = pufFile.compressedFile.tellg();
     pufFile.compressedFile.seekg(0, pufFile.compressedFile.end);
-    pufFile.compressedFileLength = pufFile.compressedFile.tellg();
+    int compressedFileLength = pufFile.compressedFile.tellg();
     pufFile.compressedFile.seekg(currentPosition);
 
     string s = "";
 
-    for (int i = currentPosition; i < pufFile.compressedFileLength; i++) {
+    for (int i = currentPosition; i < compressedFileLength; i++) {
         unsigned char c;
         pufFile.compressedFile.read((char *)&c, 1);
         pufFile.compressedFile.seekg(0, 1);
@@ -178,7 +177,7 @@ string getEncodedMessage(pufFile &pufFile) {
 //glyph to the decoded message string and reset the comparison string. When the function finds
 //the end of file glyph, the loop is exited and the decoded string is returned.
 string getDecodedMessage(pufFile &pufFile, string message) {
-    int messageLength = message.size();
+    int messageLength = message.length();
     string comparisonString;
     string decodedString;
     for (int i = 0; i < messageLength; i++) {
