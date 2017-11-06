@@ -9,6 +9,7 @@
 #include <string>
 #include <iomanip>
 #include <cmath>
+#include <ctime>
 
 using std::map;
 using std::vector;
@@ -214,5 +215,10 @@ void main() {
     string fileToDecompress;
     cout << "Enter the name of the .huf file to be decompressed: ";
     getline(cin, fileToDecompress);
+	clock_t start, end;
+	start = clock();
     decompressFile(fileToDecompress);
+	end = clock();
+	cout << std::setprecision(1) << std::fixed;
+	cout << "The time was " << (double(end - start) / CLOCKS_PER_SEC) << " seconds." << endl;
 }
