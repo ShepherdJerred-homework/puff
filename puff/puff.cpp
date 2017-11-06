@@ -113,8 +113,6 @@ void getHuffmanTable(pufFile &pufFile) {
                     bitTracker++;
                 }
             }
-           /* if (bitValue == 65535)
-                bitValue = -1;*/
             if (j == 0)
                 pufFile.hufTable[i].glyph = bitValue;
             else if (j == 1)
